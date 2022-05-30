@@ -75,7 +75,8 @@ static int32_t batVoltageFixdt  = (400 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_
 // DMA interrupt frequency =~ 16 kHz
 // =================================
 void DMA1_Channel1_IRQHandler(void) {
-
+  // Create square wave for buzzer
+  buzzerTimer++;
   DMA1->IFCR = DMA_IFCR_CTCIF1;
   // HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1);
   // HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
@@ -120,22 +121,21 @@ void DMA1_Channel1_IRQHandler(void) {
     RIGHT_TIM->BDTR |= TIM_BDTR_MOE;
   }
 
-  // Create square wave for buzzer
-  buzzerTimer++;
-  if (buzzerFreq != 0 && (buzzerTimer / 5000) % (buzzerPattern + 1) == 0) {
-    if (buzzerPrev == 0) {
-      buzzerPrev = 1;
-      if (++buzzerIdx > (buzzerCount + 2)) {    // pause 2 periods
-        buzzerIdx = 1;
-      }
-    }
-    if (buzzerTimer % buzzerFreq == 0 && (buzzerIdx <= buzzerCount || buzzerCount == 0)) {
-      HAL_GPIO_TogglePin(BUZZER_PORT, BUZZER_PIN);
-    }
-  } else if (buzzerPrev) {
-      HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_RESET);
-      buzzerPrev = 0;
-  }
+
+                                            if (buzzerFreq != 0 && (buzzerTimer / 5000) % (buzzerPattern + 1) == 0) {
+                                              if (buzzerPrev == 0) {
+                                                buzzerPrev = 1;
+                                                if (++buzzerIdx > (buzzerCount + 2)) {    // pause 2 periods
+                                                  buzzerIdx = 1;
+                                                }
+                                              }
+                                              if (buzzerTimer % buzzerFreq == 0 && (buzzerIdx <= buzzerCount || buzzerCount == 0)) {
+                                                HAL_GPIO_TogglePin(BUZZER_PORT, BUZZER_PIN);
+                                              }
+                                            } else if (buzzerPrev) {
+                                                HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_RESET);
+                                                buzzerPrev = 0;
+                                            }
 
   // Adjust pwm_margin depending on the selected Control Type
   if (rtP_Left.z_ctrlTypSel == FOC_CTRL) {
