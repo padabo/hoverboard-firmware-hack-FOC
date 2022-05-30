@@ -22,12 +22,13 @@
 
 #include <stdio.h>
 #include <stdlib.h> // for abs()
+#include "bldc.h"
 #include "stm32f1xx_hal.h"
 #include "defines.h"
 #include "setup.h"
 #include "config.h"
+#include "BLDC_controller.h"      /* BLDC's header file */  
 #include "util.h"
-#include "BLDC_controller.h"      /* BLDC's header file */
 #include "rtwtypes.h"
 #include "comms.h"
 

@@ -22,26 +22,7 @@
 #define UTIL_H
 
 #include <stdint.h>
-
-
-extern RT_MODEL *const rtM_Left;
-extern RT_MODEL *const rtM_Right;
-
-extern DW   rtDW_Left;                  /* Observable states */
-extern ExtU rtU_Left;                   /* External inputs */
-extern ExtY rtY_Left;                   /* External outputs */
-extern P    rtP_Left;
-
-extern DW   rtDW_Right;                 /* Observable states */
-extern ExtU rtU_Right;                  /* External inputs */
-extern ExtY rtY_Right;
-
-
-extern uint8_t     inIdx;               // input index used for dual-inputs
-extern uint8_t     inIdx_prev;
-extern InputStruct input1[];            // input structure
-extern InputStruct input2[];            // input structure
-
+#include "BLDC_controller.h"
 
 // Rx Structures USART
 #if defined(CONTROL_SERIAL_USART2) || defined(CONTROL_SERIAL_USART3)
@@ -145,6 +126,24 @@ typedef struct {
   uint8_t   b_multipleTap;
 } MultipleTap;
 void multipleTapDet(int16_t u, uint32_t timeNow, MultipleTap *x);
+
+extern RT_MODEL *const rtM_Left;
+extern RT_MODEL *const rtM_Right;
+
+extern DW   rtDW_Left;                  /* Observable states */
+extern ExtU rtU_Left;                   /* External inputs */
+extern ExtY rtY_Left;                   /* External outputs */
+extern P    rtP_Left;
+
+extern DW   rtDW_Right;                 /* Observable states */
+extern ExtU rtU_Right;                  /* External inputs */
+extern ExtY rtY_Right;
+
+
+extern uint8_t     inIdx;               // input index used for dual-inputs
+extern uint8_t     inIdx_prev;
+extern InputStruct input1[];            // input structure
+extern InputStruct input2[];            // input structure
 
 #endif
 

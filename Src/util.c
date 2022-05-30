@@ -26,8 +26,8 @@
 #include "setup.h"
 #include "config.h"
 #include "eeprom.h"
-#include "util.h"
 #include "BLDC_controller.h"
+#include "util.h"
 #include "rtwtypes.h"
 #include "comms.h"
 
