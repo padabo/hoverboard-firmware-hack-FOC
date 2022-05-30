@@ -33,17 +33,7 @@
 #include "BLDC_controller.h"           /* Model's header file */
 #include "rtwtypes.h"
 
-extern RT_MODEL *const rtM_Left;
-extern RT_MODEL *const rtM_Right;
-
-extern DW   rtDW_Left;                  /* Observable states */
-extern ExtU rtU_Left;                   /* External inputs */
-extern ExtY rtY_Left;                   /* External outputs */
-extern P    rtP_Left;
-
-extern DW   rtDW_Right;                 /* Observable states */
-extern ExtU rtU_Right;                  /* External inputs */
-extern ExtY rtY_Right;                  /* External outputs */
+                  /* External outputs */
 // ###############################################################################
 
 static int16_t pwm_margin;              /* This margin allows to have a window in the PWM signal for proper FOC Phase currents measurement */
