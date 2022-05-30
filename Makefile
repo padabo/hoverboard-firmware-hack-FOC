@@ -35,6 +35,8 @@ Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_uart.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_i2c.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_dma.c \
+Drivers/STM32F1xx_HAL_Driver/Src/hd44780.c \
+Drivers/STM32F1xx_HAL_Driver/Src/pcf8574.c \
 Src/system_stm32f1xx.c \
 Src/setup.c \
 Src/control.c \
@@ -43,11 +45,11 @@ Src/util.c \
 Src/main.c \
 Src/bldc.c \
 Src/eeprom.c \
-Src/hd44780.c \
-Src/pcf8574.c \
 Src/stm32f1xx_it.c \
 Src/BLDC_controller_data.c \
-Src/BLDC_controller.c
+Src/BLDC_controller.c \
+Src/buzzertones.c \
+Src/bobbycar.c
 
 # ASM sources
 ASM_SOURCES =  \

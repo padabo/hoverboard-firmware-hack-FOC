@@ -48,19 +48,11 @@ volatile int pwmr = 0;
 
 extern volatile adc_buf_t adc_buffer;
 
-uint8_t buzzerFreq          = 0;
-uint8_t buzzerPattern       = 0;
-uint8_t buzzerCount         = 0;
-volatile uint32_t buzzerTimer = 0;
-static uint8_t  buzzerPrev  = 0;
-static uint8_t  buzzerIdx   = 0;
-
 uint8_t        enable       = 0;        // initially motors are disabled for SAFETY
 static uint8_t enableFin    = 0;
 
 static const uint16_t pwm_res  = 64000000 / 2 / PWM_FREQ; // = 2000
 
-static uint16_t offsetcount = 0;
 static int16_t offsetrlA    = 2000;
 static int16_t offsetrlB    = 2000;
 static int16_t offsetrrB    = 2000;
@@ -71,32 +63,39 @@ static int16_t offsetdcr    = 2000;
 int16_t        batVoltage       = (400 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_REAL_VOLTAGE;
 static int32_t batVoltageFixdt  = (400 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_REAL_VOLTAGE << 16;  // Fixed-point filter output initialized at 400 V*100/cell = 4 V/cell converted to fixed-point
 
-// =================================
-// DMA interrupt frequency =~ 16 kHz
-// =================================
-void DMA1_Channel1_IRQHandler(void) {
-  // Create square wave for buzzer
-  buzzerTimer++;
-  DMA1->IFCR = DMA_IFCR_CTCIF1;
-  // HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1);
-  // HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
+volatile unsigned long mainCounter = 0;  // global time incremented by interrupt
 
-  if(offsetcount < 2000) {  // calibrate ADC offsets
-    offsetcount++;
-    offsetrlA = (adc_buffer.rlA + offsetrlA) / 2;
-    offsetrlB = (adc_buffer.rlB + offsetrlB) / 2;
-    offsetrrB = (adc_buffer.rrB + offsetrrB) / 2;
-    offsetrrC = (adc_buffer.rrC + offsetrrC) / 2;
-    offsetdcl = (adc_buffer.dcl + offsetdcl) / 2;
-    offsetdcr = (adc_buffer.dcr + offsetdcr) / 2;
+unsigned long get_mainCounter(){
+  return mainCounter;
+}
+
+
+void nullFunc(){}  // Function for empty funktionpointer becasue Jump NULL != ret
+
+static void calibration_func();
+
+typedef void (*IsrPtr)();
+volatile IsrPtr timer_brushless = calibration_func;
+volatile IsrPtr buzzerFunc = nullFunc;
+
+void stop_buzzer(){
+  buzzerFunc = nullFunc;
+  HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, 0);
+}
+
+void bldc_start_calibration(){
+  mainCounter = 0;
+  timer_brushless = calibration_func;
+}
+
+void set_buzzer(void* buzzerfunc){
+  if(buzzerFunc == buzzerfunc)
     return;
-  }
+  set_buzzerStart(mainCounter);
+  buzzerFunc = buzzerfunc;
+}
 
-  if (buzzerTimer % 1000 == 0) {  // Filter battery voltage at a slower sampling rate
-    filtLowPass32(adc_buffer.batt1, BAT_FILT_COEF, &batVoltageFixdt);
-    batVoltage = (int16_t)(batVoltageFixdt >> 16);  // convert fixed-point to integer
-  }
-
+void bldc_control(){
   // Get Left motor currents
   curL_phaA = (int16_t)(offsetrlA - adc_buffer.rlA);
   curL_phaB = (int16_t)(offsetrlB - adc_buffer.rlB);
@@ -121,23 +120,7 @@ void DMA1_Channel1_IRQHandler(void) {
     RIGHT_TIM->BDTR |= TIM_BDTR_MOE;
   }
 
-
-                                            if (buzzerFreq != 0 && (buzzerTimer / 5000) % (buzzerPattern + 1) == 0) {
-                                              if (buzzerPrev == 0) {
-                                                buzzerPrev = 1;
-                                                if (++buzzerIdx > (buzzerCount + 2)) {    // pause 2 periods
-                                                  buzzerIdx = 1;
-                                                }
-                                              }
-                                              if (buzzerTimer % buzzerFreq == 0 && (buzzerIdx <= buzzerCount || buzzerCount == 0)) {
-                                                HAL_GPIO_TogglePin(BUZZER_PORT, BUZZER_PIN);
-                                              }
-                                            } else if (buzzerPrev) {
-                                                HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_RESET);
-                                                buzzerPrev = 0;
-                                            }
-
-  // Adjust pwm_margin depending on the selected Control Type
+   // Adjust pwm_margin depending on the selected Control Type
   if (rtP_Left.z_ctrlTypSel == FOC_CTRL) {
     pwm_margin = 110;
   } else {
@@ -238,5 +221,35 @@ void DMA1_Channel1_IRQHandler(void) {
   OverrunFlag = false;
  
  // ###############################################################################
+}
 
+static void calibration_func(){
+  if(mainCounter < 2000) {  // calibrate ADC offsets
+    offsetrlA = (adc_buffer.rlA + offsetrlA) / 2;
+    offsetrlB = (adc_buffer.rlB + offsetrlB) / 2;
+    offsetrrB = (adc_buffer.rrB + offsetrrB) / 2;
+    offsetrrC = (adc_buffer.rrC + offsetrrC) / 2;
+    offsetdcl = (adc_buffer.dcl + offsetdcl) / 2;
+    offsetdcr = (adc_buffer.dcr + offsetdcr) / 2;
+    return;
+  }
+  else
+    timer_brushless = bldc_control;
+}
+
+// =================================
+// DMA interrupt frequency =~ 16 kHz
+// =================================
+void DMA1_Channel1_IRQHandler(void) {
+  // Create square wave for buzzer
+  DMA1->IFCR = DMA_IFCR_CTCIF1;
+  // HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1);
+  // HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
+  mainCounter++;
+  timer_brushless();
+  buzzerFunc();
+  if (mainCounter % 1000 == 0) {  // Filter battery voltage at a slower sampling rate
+    filtLowPass32(adc_buffer.batt1, BAT_FILT_COEF, &batVoltageFixdt);
+    batVoltage = (int16_t)(batVoltageFixdt >> 16);  // convert fixed-point to integer
+  }
 }
