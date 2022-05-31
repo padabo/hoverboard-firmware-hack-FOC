@@ -28,6 +28,8 @@
 #include "BLDC_controller.h"
 #include "util.h"
 #include "comms.h"
+#include "bldc.h"
+#include "buzzertones.h"
 
 #if defined(DEBUG_SERIAL_PROTOCOL)
 #if defined(DEBUG_SERIAL_PROTOCOL) && (defined(DEBUG_SERIAL_USART2) || defined(DEBUG_SERIAL_USART3))
@@ -208,7 +210,7 @@ int8_t setParamValInt(uint8_t index, int32_t newValue) {
     }
 
     // Beep if value was modified
-    beepShort(5);
+    set_buzzer(beep_short5);
   }
 
   // Run callback function if assigned

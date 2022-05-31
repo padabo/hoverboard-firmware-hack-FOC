@@ -65,6 +65,61 @@ void buttonRelease(){
         stop_buzzer();
 }
 
+void beep_short_many(){
+    unsigned long curBuzzTime = get_mainCounter() - buzzerStart;
+    if(!((curBuzzTime / (PWM_FREQ) % 2)))
+        create_buzzer_wave(curBuzzTime, 10);
+}
+
+void beep_short_8(){
+    unsigned long curBuzzTime = get_mainCounter() - buzzerStart;
+    if(!((curBuzzTime / (PWM_FREQ) % 2)))
+        create_buzzer_wave(curBuzzTime, 10);
+}
+
+void beep_short_13(){
+    unsigned long curBuzzTime = get_mainCounter() - buzzerStart;
+    if(!((curBuzzTime / (PWM_FREQ) % 2)))
+        create_buzzer_wave(curBuzzTime, 10);
+}
+void ppmTimeout(){
+    unsigned long curBuzzTime = get_mainCounter() - buzzerStart;
+    if(!((curBuzzTime / (PWM_FREQ) % 2)))
+        create_buzzer_wave(curBuzzTime, 10);
+}
+
+void MotorFail(){
+    unsigned long curBuzzTime = get_mainCounter() - buzzerStart;
+    if(!((curBuzzTime / (PWM_FREQ) % 2)))
+        create_buzzer_wave(curBuzzTime, 10);
+}
+
+void i2cTimeout(){
+    unsigned long curBuzzTime = get_mainCounter() - buzzerStart;
+    if(!((curBuzzTime / (PWM_FREQ) % 2)))
+        create_buzzer_wave(curBuzzTime, 10);
+}
+
+void adcTimeout(){
+    unsigned long curBuzzTime = get_mainCounter() - buzzerStart;
+    if(!((curBuzzTime / (PWM_FREQ) % 2)))
+        create_buzzer_wave(curBuzzTime, 10);
+}
+
+void serialTimeout(){
+    unsigned long curBuzzTime = get_mainCounter() - buzzerStart;
+    if(!((curBuzzTime / (PWM_FREQ) % 2)))
+        create_buzzer_wave(curBuzzTime, 10);
+}
+
+
+
+void TempWarning(){
+    unsigned long curBuzzTime = get_mainCounter() - buzzerStart;
+    if(!((curBuzzTime / (PWM_FREQ) % 2)))
+        create_buzzer_wave(curBuzzTime, 10);
+}
+
 void noLCD(){
     unsigned long curBuzzTime = get_mainCounter() - buzzerStart;
     if(!((curBuzzTime / (PWM_FREQ) % 2)))
@@ -77,6 +132,23 @@ void noSlave(){
         create_buzzer_wave(curBuzzTime, 12);
 }
 
+void beep_long(){
+    unsigned long curBuzzTime = get_mainCounter() - buzzerStart;
+    if(!((curBuzzTime / (PWM_FREQ) % 2)))
+        create_buzzer_wave(curBuzzTime, 12);
+}
+
+void beep_short6_4(){
+    unsigned long curBuzzTime = get_mainCounter() - buzzerStart;
+    if(!((curBuzzTime / (PWM_FREQ) % 2)))
+        create_buzzer_wave(curBuzzTime, 12);
+}
+
+void beep_short5(){
+    unsigned long curBuzzTime = get_mainCounter() - buzzerStart;
+    if(!((curBuzzTime / (PWM_FREQ) % 2)))
+        create_buzzer_wave(curBuzzTime, 12);
+}
 void resetSound(){
     unsigned long curBuzzTime = get_mainCounter() - buzzerStart;
     switch(curBuzzTime / (PWM_FREQ / 8)){

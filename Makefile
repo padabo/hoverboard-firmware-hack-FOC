@@ -48,8 +48,7 @@ Src/eeprom.c \
 Src/stm32f1xx_it.c \
 Src/BLDC_controller_data.c \
 Src/BLDC_controller.c \
-Src/buzzertones.c \
-Src/bobbycar.c
+Src/buzzertones.c
 
 # ASM sources
 ASM_SOURCES =  \

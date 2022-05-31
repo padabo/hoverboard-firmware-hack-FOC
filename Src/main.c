@@ -31,6 +31,7 @@
 #include "util.h"
 #include "rtwtypes.h"
 #include "comms.h"
+#include "buzzertones.h"
 
 #if defined(DEBUG_I2C_LCD) || defined(SUPPORT_LCD)
 #include "hd44780.h"
@@ -82,7 +83,6 @@ extern volatile uint16_t pwm_captured_ch2_value;
 // Global variables set here in main.c
 //------------------------------------------------------------------------
 uint8_t backwardDrive;
-extern volatile uint32_t buzzerTimer;
 volatile uint32_t main_loop_counter;
 int16_t batVoltageCalib;         // global variable for calibrated battery voltage
 int16_t board_temp_deg_c;        // global variable for calibrated temperature in degrees Celsius
@@ -178,7 +178,7 @@ int main(void) {
   HAL_ADC_Start(&hadc1);
   HAL_ADC_Start(&hadc2);
 
-  poweronMelody();
+  set_buzzer(startUpSound);
   HAL_GPIO_WritePin(LED_PORT, LED_PIN, GPIO_PIN_SET);
   
   int32_t board_temp_adcFixdt = adc_buffer.temp << 16;  // Fixed-point filter output initialized with current ADC converted to fixed-point
@@ -188,7 +188,7 @@ int main(void) {
   while(HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN)) { HAL_Delay(10); }
 
   while(1) {
-    if (buzzerTimer - buzzerTimer_prev > 16*DELAY_IN_MAIN_LOOP) {   // 1 ms = 16 ticks buzzerTimer
+    if (get_mainCounter() - buzzerTimer_prev > 16*DELAY_IN_MAIN_LOOP) {   // 1 ms = 16 ticks buzzerTimer
 
     readCommand();                        // Read Command: input1[inIdx].cmd, input2[inIdx].cmd
     calcAvgSpeed();                       // Calculate average measured speed: speedAvg, speedAvgAbs
@@ -197,8 +197,7 @@ int main(void) {
       // ####### MOTOR ENABLING: Only if the initial input is very small (for SAFETY) #######
       if (enable == 0 && !rtY_Left.z_errCode && !rtY_Right.z_errCode && 
           ABS(input1[inIdx].cmd) < 50 && ABS(input2[inIdx].cmd) < 50){
-        beepShort(6);                     // make 2 beeps indicating the motor enable
-        beepShort(4); HAL_Delay(100);
+        set_buzzer(beep_short6_4);
         steerFixdt = speedFixdt = 0;      // reset filters
         enable = 1;                       // enable motors
         #if defined(DEBUG_SERIAL_USART2) || defined(DEBUG_SERIAL_USART3)
@@ -348,7 +347,7 @@ int main(void) {
 
       if ((distance / 1345.0) - setDistance > 0.5 && (lastDistance / 1345.0) - setDistance > 0.5) { // Error, robot too far away!
         enable = 0;
-        beepLong(5);
+        set_buzzer(beep_long);
         #ifdef SUPPORT_LCD
           LCD_ClearDisplay(&lcd);
           HAL_Delay(5);
@@ -486,24 +485,23 @@ int main(void) {
       poweroff();
     } else if (rtY_Left.z_errCode || rtY_Right.z_errCode) {                                           // 1 beep (low pitch): Motor error, disable motors
       enable = 0;
-      beepCount(1, 24, 1);
+      set_buzzer(MotorFail);
     } else if (timeoutFlgADC) {                                                                       // 2 beeps (low pitch): ADC timeout
-      beepCount(2, 24, 1);
+      set_buzzer(adcTimeout);
     } else if (timeoutFlgSerial) {                                                                    // 3 beeps (low pitch): Serial timeout
-      beepCount(3, 24, 1);
+      set_buzzer(serialTimeout);
     } else if (timeoutFlgGen) {                                                                       // 4 beeps (low pitch): General timeout (PPM, PWM, Nunchuk)
-      beepCount(4, 24, 1);
+      set_buzzer(ppmTimeout);
     } else if (TEMP_WARNING_ENABLE && board_temp_deg_c >= TEMP_WARNING) {                             // 5 beeps (low pitch): Mainboard temperature warning
-      beepCount(5, 24, 1);
+      set_buzzer(TempWarning);
     } else if (BAT_LVL1_ENABLE && batVoltage < BAT_LVL1) {                                            // 1 beep fast (medium pitch): Low bat 1
-      beepCount(0, 10, 6);
+      set_buzzer(lowBattery3);
     } else if (BAT_LVL2_ENABLE && batVoltage < BAT_LVL2) {                                            // 1 beep slow (medium pitch): Low bat 2
-      beepCount(0, 10, 30);
+      set_buzzer(lowBattery2);
     } else if (BEEPS_BACKWARD && (((cmdR < -50 || cmdL < -50) && speedAvg < 0) || MultipleTapBrake.b_multipleTap)) { // 1 beep fast (high pitch): Backward spinning motors
-      beepCount(0, 5, 1);
+      set_buzzer(reverseSound);
       backwardDrive = 1;
     } else {  // do not beep
-      beepCount(0, 0, 0);
       backwardDrive = 0;
     }
 
@@ -533,7 +531,7 @@ int main(void) {
     // HAL_GPIO_TogglePin(LED_PORT, LED_PIN);                 // This is to measure the main() loop duration with an oscilloscope connected to LED_PIN
     // Update states
     inIdx_prev = inIdx;
-    buzzerTimer_prev = buzzerTimer;
+    buzzerTimer_prev = get_mainCounter();
     main_loop_counter++;
     }
   }
