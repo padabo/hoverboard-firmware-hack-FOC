@@ -27,14 +27,15 @@
 // ########################## DEFINES ##########################
 #define HOVER_SERIAL_BAUD   115200      // [-] Baud rate for HoverSerial (used to communicate with the hoverboard)
 #define SERIAL_BAUD         115200      // [-] Baud rate for built-in Serial (used for the Serial Monitor)
-#define START_FRAME         0xABCD     	// [-] Start frme definition for reliable serial communication
+#define START_FRAME         0xABCD     	// [-] Start frame definition for reliable serial communication
 #define TIME_SEND           100         // [ms] Sending time interval
 #define SPEED_MAX_TEST      300         // [-] Maximum speed for testing
 #define SPEED_STEP          20          // [-] Speed step
 // #define DEBUG_RX                        // [-] Debug received data. Prints all bytes to serial (comment-out to disable)
 
 #include <SoftwareSerial.h>
-SoftwareSerial HoverSerial(2,3);        // RX, TX
+SoftwareSerial HoverSerial0(2,3);        // RX, TX
+SoftwareSerial HoverSerial1(4,5);        // RX, TX
 
 // Global variables
 uint8_t idx = 0;                        // Index for new data pointer
@@ -71,7 +72,7 @@ void setup()
   Serial.begin(SERIAL_BAUD);
   Serial.println("Hoverboard Serial v1.0");
 
-  HoverSerial.begin(HOVER_SERIAL_BAUD);
+  HoverSerial0.begin(HOVER_SERIAL_BAUD);
   pinMode(LED_BUILTIN, OUTPUT);
 }
 
@@ -85,15 +86,15 @@ void Send(int16_t uSteer, int16_t uSpeed)
   Command.checksum = (uint16_t)(Command.start ^ Command.steer ^ Command.speed);
 
   // Write to Serial
-  HoverSerial.write((uint8_t *) &Command, sizeof(Command)); 
+  HoverSerial0.write((uint8_t *) &Command, sizeof(Command)); 
 }
 
 // ########################## RECEIVE ##########################
 void Receive()
 {
     // Check for new data availability in the Serial buffer
-    if (HoverSerial.available()) {
-        incomingByte 	  = HoverSerial.read();                                   // Read the incoming byte
+    if (HoverSerial0.available()) {
+        incomingByte 	  = HoverSerial0.read();                                   // Read the incoming byte
         bufStartFrame	= ((uint16_t)(incomingByte) << 8) | incomingBytePrev;       // Construct the start frame
     }
     else {
