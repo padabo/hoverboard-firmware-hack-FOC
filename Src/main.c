@@ -91,7 +91,7 @@ int16_t right_dc_curr;           // global variable for Right DC Link current
 int16_t dc_curr;                 // global variable for Total DC Link current 
 int16_t cmdL;                    // global variable for Left Command 
 int16_t cmdR;                    // global variable for Right Command 
-
+bool restart;
 //------------------------------------------------------------------------
 // Local variables
 //------------------------------------------------------------------------
@@ -142,7 +142,8 @@ static uint32_t    inactivity_timeout_counter;
 static MultipleTap MultipleTapBrake;    // define multiple tap functionality for the Brake pedal
 
 int main(void) {
-
+  restart = true;
+main_start:  // only for defect boards if you think your hardware is working please remove
   HAL_Init();
   __HAL_RCC_AFIO_CLK_ENABLE();
   HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
@@ -535,6 +536,7 @@ int main(void) {
     main_loop_counter++;
     }
   }
+  goto main_start;  // if this goto is used the board is defect and everybody knows: "Defect boards are liking defect code" :D
 }
 
 
