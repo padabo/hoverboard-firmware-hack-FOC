@@ -23,32 +23,23 @@
 //   #define FEEDBACK_SERIAL_USART2
 //   // #define DEBUG_SERIAL_USART2
 // *******************************************************************
-
-// ########################## DEFINES ##########################
-#define HOVER_SERIAL_BAUD 115200 // [-] Baud rate for HoverSerial (used to communicate with the hoverboard)
-#define SERIAL_BAUD 115200       // [-] Baud rate for built-in Serial (used for the Serial Monitor)
-#define START_FRAME 0xABCD       // [-] Start frame definition for reliable serial communication
-#define TIME_SEND 20             // [ms] Sending time interval
-// #define DEBUG_RX                        // [-] Debug received data. Prints all bytes to serial (comment-out to disable)
-
-#define BUFFERSIZE 32
-#define VAL_CNT 4
-
 #include <SoftwareSerial.h>
 #include <math.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
 
-#include <Wire.h>  // Wire Bibliothek hochladen
-#include <LiquidCrystal_I2C.h> // Vorher hinzugefügte LiquidCrystal_I2C Bibliothek hochladen
+//#include <Wire.h>  // Wire Bibliothek hochladen
+//#include <LiquidCrystal_I2C.h> // Vorher hinzugefügte LiquidCrystal_I2C Bibliothek hochladen
 
 #include "defines.h"
 #include "config.h"
 
-LiquidCrystal_I2C lcd(0x27, 20, 4);  //Hier wird das Display benannt (Adresse/Zeichen pro Zeile/Anzahl Zeilen). In unserem Fall „lcd“. Die Adresse des I²C Displays kann je nach Modul variieren.
+//LiquidCrystal_I2C lcd(0x27, 20, 4);  //Hier wird das Display benannt (Adresse/Zeichen pro Zeile/Anzahl Zeilen). In unserem Fall „lcd“. Die Adresse des I²C Displays kann je nach Modul variieren.
 SoftwareSerial HoverSerial_front(2, 3); // RX, TX
 SoftwareSerial HoverSerial_rear(4, 5);  // RX, TX
 
-uint32_t index[VAL_CNT];
+uint32_t index_buff_vals[VAL_CNT];
 uint32_t buff_vals[VAL_CNT][BUFFERSIZE];
 uint32_t cur_buff_val_sum[VAL_CNT];
 
@@ -79,8 +70,8 @@ void setup()
   Serial.begin(SERIAL_BAUD);
   Serial.println("Hoverboard Serial v1.0");
 
-  lcd.init(); //Im Setup wird der LCD gestartet
-  lcd.backlight(); //Hintergrundbeleuchtung einschalten (0 schaltet die Beleuchtung aus).
+  //lcd.init(); //Im Setup wird der LCD gestartet
+  //lcd.backlight(); //Hintergrundbeleuchtung einschalten (0 schaltet die Beleuchtung aus).
 
 
   HoverSerial_front.begin(HOVER_SERIAL_BAUD);
@@ -90,11 +81,11 @@ void setup()
 
   for (int i = 0; i < VAL_CNT; i++)
   {
-    cur_buff_val_sum[i] = index[i] = 0;
+    cur_buff_val_sum[i] = index_buff_vals[i] = 0;
     for (int j = 0; j < BUFFERSIZE; j++)
       cur_buff_val_sum[i] += (buff_vals[i][j] = ADC_MID);
   }
-  init_debug_screen();
+  //init_debug_screen();
 }
 
 // ########################## LOOP ##########################
@@ -103,12 +94,12 @@ unsigned long iTimeSend = 0;
 
 uint32_t value_buffer(uint32_t in, int val)
 {
-  cur_buff_val_sum[val] -= buff_vals[val][index[val]];
-  cur_buff_val_sum[val] += (buff_vals[val][index[val]] = (in >> 16));
-  index[val] = (index[val] + 1) % BUFFERSIZE;
+  cur_buff_val_sum[val] -= buff_vals[val][index_buff_vals[val]];
+  cur_buff_val_sum[val] += (buff_vals[val][index_buff_vals[val]] = (in >> 16));
+  index_buff_vals[val] = (index_buff_vals[val] + 1) % (BUFFERSIZE);
   return (cur_buff_val_sum[val] / (BUFFERSIZE)) << 16;
 }
-
+/*
 uint8_t val_len[20][4];
 
 void init_debug_screen()
@@ -145,7 +136,7 @@ void update_debug_screen()
   //update_num(19, 2, blockcurlr[0] + blockcurlr[1]);
   //Display_show_float(18, 3, ADC122BATTERY_VOLTAGE(battery_voltage), 5);
 }
-
+*/
 // bobbycar
 int clean_adc_full(uint32_t inval)
 {
@@ -245,7 +236,7 @@ void Send(SoftwareSerial *board, int16_t speed0, int16_t speed1)
 
 // ########################## RECEIVE ##########################
 // Global variables
-uint8_t idx = 0; // Index for new data pointer
+uint8_t idx = 0; // index_buff_vals for new data pointer
 byte *p;         // Pointer declaration for the new received data
 byte incomingByte;
 byte incomingBytePrev;
@@ -291,7 +282,7 @@ bool Receive(SoftwareSerial *board, SerialFeedback *out)
   {
     uint16_t checksum;
     checksum = (uint16_t)(NewFeedback.start ^ NewFeedback.cmd1 ^ NewFeedback.cmd2 ^ NewFeedback.speedR_meas ^ NewFeedback.speedL_meas ^ NewFeedback.batVoltage ^ NewFeedback.boardTemp ^ NewFeedback.cmdLed);
-    idx = 0; // Reset the index (it prevents to enter in this if condition in the next cycle)
+    idx = 0; // Reset the index_buff_vals (it prevents to enter in this if condition in the next cycle)
 
     // Check validity of the new data
     if (NewFeedback.start == START_FRAME && checksum == NewFeedback.checksum)
@@ -322,6 +313,9 @@ bool Receive(SoftwareSerial *board, SerialFeedback *out)
       return false;
     }
   }
+  else{
+    return false;
+  }
 }
 
 SerialFeedback SerialFeedback_front;
@@ -344,8 +338,8 @@ void loop(void)
   if (iTimeSend > timeNow)
     return;
   iTimeSend = timeNow + TIME_SEND;
-  int throttle = throttle_calc(clean_adc_full(value_buffer(analogRead(A0),0)));
-  float steering = calc_steering_eagle(clean_adc_full(value_buffer(analogRead(A1),1)));
+  int throttle = throttle_calc(clean_adc_full(value_buffer(analogRead(THROTTLE0_PIN),0)));
+  float steering = calc_steering_eagle(clean_adc_full(value_buffer(analogRead(STEERING_PIN),1)));
   calc_torque_per_wheel(throttle, steering, torgue);
   Send(&HoverSerial_front, torgue[0], torgue[1]);
   Send(&HoverSerial_rear, torgue[2], torgue[3]);
