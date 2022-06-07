@@ -141,6 +141,14 @@ static uint32_t    buzzerTimer_prev = 0;
 static uint32_t    inactivity_timeout_counter;
 static MultipleTap MultipleTapBrake;    // define multiple tap functionality for the Brake pedal
 
+static uint16_t rate = RATE; // Adjustable rate to support multiple drive modes on startup
+
+#ifdef MULTI_MODE_DRIVE
+  static uint8_t drive_mode;
+  static uint16_t max_speed;
+#endif
+
+
 int main(void) {
   restart = true;
 main_start:  // only for defect boards if you think your hardware is working please remove
@@ -185,8 +193,31 @@ main_start:  // only for defect boards if you think your hardware is working ple
   int32_t board_temp_adcFixdt = adc_buffer.temp << 16;  // Fixed-point filter output initialized with current ADC converted to fixed-point
   int16_t board_temp_adcFilt  = adc_buffer.temp;
 
+  #ifdef MULTI_MODE_DRIVE
+    if (adc_buffer.l_rx2 >= input1[0].min) {
+      drive_mode = 0;
+      max_speed = MULTI_MODE_DRIVE_M1_MAX;
+      rate = MULTI_MODE_DRIVE_M1_RATE;
+    } else if (adc_buffer.l_tx2 >= input2[0].min) {
+      drive_mode = 2;
+      max_speed = MULTI_MODE_DRIVE_M3_MAX;
+      rate = MULTI_MODE_DRIVE_M3_RATE;
+    } else {
+      drive_mode = 1;
+      max_speed = MULTI_MODE_DRIVE_M2_MAX;
+      rate = MULTI_MODE_DRIVE_M2_RATE;
+    }
+
+    printf("Drive mode %i selected: max_speed:%i acc_rate:%i \r\n", drive_mode, max_speed, rate);
+  #endif
+
   // Loop until button is released
   while(HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN)) { HAL_Delay(10); }
+
+  #ifdef MULTI_MODE_DRIVE
+    // Wait until triggers are released
+    while((adc_buffer.l_rx2 + adc_buffer.l_tx2) >= (input1[0].min + input2[0].min)) { HAL_Delay(10); }
+  #endif
 
   while(1) {
     if (get_mainCounter() - buzzerTimer_prev > 16*DELAY_IN_MAIN_LOOP) {   // 1 ms = 16 ticks buzzerTimer
@@ -254,8 +285,8 @@ main_start:  // only for defect boards if you think your hardware is working ple
       #endif
 
       // ####### LOW-PASS FILTER #######
-      rateLimiter16(input1[inIdx].cmd , RATE, &steerRateFixdt);
-      rateLimiter16(input2[inIdx].cmd , RATE, &speedRateFixdt);
+      rateLimiter16(input1[inIdx].cmd, rate, &steerRateFixdt);
+      rateLimiter16(input2[inIdx].cmd, rate, &speedRateFixdt);
       filtLowPass32(steerRateFixdt >> 4, FILTER, &steerFixdt);
       filtLowPass32(speedRateFixdt >> 4, FILTER, &speedFixdt);
       steer = (int16_t)(steerFixdt >> 16);  // convert fixed-point to integer
@@ -264,6 +295,13 @@ main_start:  // only for defect boards if you think your hardware is working ple
       // ####### VARIANT_HOVERCAR #######
       #ifdef VARIANT_HOVERCAR
       if (inIdx == CONTROL_ADC) {               // Only use use implementation below if pedals are in use (ADC input)
+
+        #ifdef MULTI_MODE_DRIVE
+        if (speed >= max_speed) {
+          speed = max_speed;
+        }
+        #endif
+
         if (!MultipleTapBrake.b_multipleTap) {  // Check driving direction
           speed = steer + speed;                // Forward driving: in this case steer = Brake, speed = Throttle
         } else {
@@ -425,7 +463,7 @@ main_start:  // only for defect boards if you think your hardware is working ple
         #if defined(DEBUG_SERIAL_PROTOCOL)
           process_debug();
         #else
-          printf("in1:%i in2:%i cmdL:%i cmdR:%i BatADC:%i BatV:%i TempADC:%i Temp:%i\r\n",
+          printf("in1:%i in2:%i cmdL:%i cmdR:%i BatADC:%i BatV:%i TempADC:%i Temp:%i \r\n",
             input1[inIdx].raw,        // 1: INPUT1
             input2[inIdx].raw,        // 2: INPUT2
             cmdL,                     // 3: output command: [-1000, 1000]
