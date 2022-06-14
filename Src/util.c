@@ -1504,7 +1504,10 @@ void poweroff(void) {
   set_buzzer(shutDownSound);
   saveConfig();
   HAL_GPIO_WritePin(OFF_PORT, OFF_PIN, GPIO_PIN_RESET);
-  while(1) {}
+  set_bldc_to_led();
+  while(!HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN)) { // for turn back on after soft off
+    HAL_Delay(200);
+  }
 }
 
 

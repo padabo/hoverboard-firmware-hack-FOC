@@ -186,7 +186,7 @@ main_start:  // only for defect boards if you think your hardware is working ple
 
   HAL_ADC_Start(&hadc1);
   HAL_ADC_Start(&hadc2);
-
+  bldc_start_calibration();
   set_buzzer(startUpSound);
   HAL_GPIO_WritePin(LED_PORT, LED_PIN, GPIO_PIN_SET);
   

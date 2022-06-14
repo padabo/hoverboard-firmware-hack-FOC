@@ -11,3 +11,6 @@ extern int16_t batVoltage;              // global variable for battery voltage
 void set_buzzer(void* buzzerfunc);
 void stop_buzzer();
 unsigned long get_mainCounter();
+
+void bldc_start_calibration();
+void set_bldc_to_led();

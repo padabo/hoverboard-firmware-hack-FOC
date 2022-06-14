@@ -75,7 +75,7 @@ void nullFunc(){}  // Function for empty funktionpointer becasue Jump NULL != re
 static void calibration_func();
 
 typedef void (*IsrPtr)();
-volatile IsrPtr timer_brushless = calibration_func;
+volatile IsrPtr timer_brushless = nullFunc;
 volatile IsrPtr buzzerFunc = nullFunc;
 
 void stop_buzzer(){
@@ -86,6 +86,15 @@ void stop_buzzer(){
 void bldc_start_calibration(){
   mainCounter = 0;
   timer_brushless = calibration_func;
+}
+
+void blink_led(){
+  HAL_GPIO_WritePin(LED_PORT, LED_PIN, mainCounter/PWM_FREQ%2);
+  stop_buzzer(); // make it quiet
+}
+
+void set_bldc_to_led(){
+  timer_brushless = blink_led;
 }
 
 void set_buzzer(void* buzzerfunc){
@@ -222,19 +231,25 @@ void bldc_control(){
  
  // ###############################################################################
 }
-
 static void calibration_func(){
-  if(mainCounter < 2000) {  // calibrate ADC offsets
-    offsetrlA = (adc_buffer.rlA + offsetrlA) / 2;
-    offsetrlB = (adc_buffer.rlB + offsetrlB) / 2;
-    offsetrrB = (adc_buffer.rrB + offsetrrB) / 2;
-    offsetrrC = (adc_buffer.rrC + offsetrrC) / 2;
-    offsetdcl = (adc_buffer.dcl + offsetdcl) / 2;
-    offsetdcr = (adc_buffer.dcr + offsetdcr) / 2;
+  if(mainCounter < CALIBRATION_CNT) {  // calibrate ADC offsets
+    offsetrlA = adc_buffer.rlA;
+    offsetrlB = adc_buffer.rlB;
+    offsetrrB = adc_buffer.rrB;
+    offsetrrC = adc_buffer.rrC;
+    offsetdcl = adc_buffer.dcl;
+    offsetdcr = adc_buffer.dcr;
     return;
   }
-  else
+  else{
+    offsetrlA /= CALIBRATION_CNT;
+    offsetrlB /= CALIBRATION_CNT;
+    offsetrrB /= CALIBRATION_CNT;
+    offsetrrC /= CALIBRATION_CNT;
+    offsetdcl /= CALIBRATION_CNT;
+    offsetdcr /= CALIBRATION_CNT;
     timer_brushless = bldc_control;
+  }
 }
 
 // =================================
