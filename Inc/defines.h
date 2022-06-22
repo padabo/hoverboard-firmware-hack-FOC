@@ -261,7 +261,5 @@ void PWM_ISR_CH2_Callback(void);
 #define SWC_SET             (0x1800)   //  0001 1000 0000 0000
 #define SWD_SET             (0x2000)   //  0010 0000 0000 0000
 
-#define CALIBRATION_CNT 16
-
 #endif // DEFINES_H
 

@@ -22,16 +22,14 @@
 
 #include <stdio.h>
 #include <stdlib.h> // for abs()
-#include "bldc.h"
 #include "stm32f1xx_hal.h"
 #include "defines.h"
 #include "setup.h"
 #include "config.h"
-#include "BLDC_controller.h"      /* BLDC's header file */  
 #include "util.h"
+#include "BLDC_controller.h"      /* BLDC's header file */
 #include "rtwtypes.h"
 #include "comms.h"
-#include "buzzertones.h"
 
 #if defined(DEBUG_I2C_LCD) || defined(SUPPORT_LCD)
 #include "hd44780.h"
@@ -57,12 +55,34 @@ extern UART_HandleTypeDef huart3;
 
 volatile uint8_t uart_buf[200];
 
+// Matlab defines - from auto-code generation
+//---------------
+extern P    rtP_Left;                   /* Block parameters (auto storage) */
+extern P    rtP_Right;                  /* Block parameters (auto storage) */
+extern ExtY rtY_Left;                   /* External outputs */
+extern ExtY rtY_Right;                  /* External outputs */
+extern ExtU rtU_Left;                   /* External inputs */
+extern ExtU rtU_Right;                  /* External inputs */
+//---------------
+
+extern uint8_t     inIdx;               // input index used for dual-inputs
+extern uint8_t     inIdx_prev;
+extern InputStruct input1[];            // input structure
+extern InputStruct input2[];            // input structure
+
 extern int16_t speedAvg;                // Average measured speed
 extern int16_t speedAvgAbs;             // Average measured speed in absolute
 extern volatile uint32_t timeoutCntGen; // Timeout counter for the General timeout (PPM, PWM, Nunchuk)
 extern volatile uint8_t  timeoutFlgGen; // Timeout Flag for the General timeout (PPM, PWM, Nunchuk)
 extern uint8_t timeoutFlgADC;           // Timeout Flag for for ADC Protection: 0 = OK, 1 = Problem detected (line disconnected or wrong ADC data)
 extern uint8_t timeoutFlgSerial;        // Timeout Flag for Rx Serial command: 0 = OK, 1 = Problem detected (line disconnected or wrong Rx data)
+
+extern volatile int pwml;               // global variable for pwm left. -1000 to 1000
+extern volatile int pwmr;               // global variable for pwm right. -1000 to 1000
+
+extern uint8_t enable;                  // global variable for motor enable
+
+extern int16_t batVoltage;              // global variable for battery voltage
 
 #if defined(SIDEBOARD_SERIAL_USART2)
 extern SerialSideboard Sideboard_L;
@@ -83,6 +103,7 @@ extern volatile uint16_t pwm_captured_ch2_value;
 // Global variables set here in main.c
 //------------------------------------------------------------------------
 uint8_t backwardDrive;
+extern volatile uint32_t buzzerTimer;
 volatile uint32_t main_loop_counter;
 int16_t batVoltageCalib;         // global variable for calibrated battery voltage
 int16_t board_temp_deg_c;        // global variable for calibrated temperature in degrees Celsius
@@ -91,7 +112,7 @@ int16_t right_dc_curr;           // global variable for Right DC Link current
 int16_t dc_curr;                 // global variable for Total DC Link current 
 int16_t cmdL;                    // global variable for Left Command 
 int16_t cmdR;                    // global variable for Right Command 
-bool restart;
+
 //------------------------------------------------------------------------
 // Local variables
 //------------------------------------------------------------------------
@@ -150,8 +171,7 @@ static uint16_t rate = RATE; // Adjustable rate to support multiple drive modes 
 
 
 int main(void) {
-  restart = true;
-main_start:  // only for defect boards if you think your hardware is working please remove
+
   HAL_Init();
   __HAL_RCC_AFIO_CLK_ENABLE();
   HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
@@ -186,8 +206,8 @@ main_start:  // only for defect boards if you think your hardware is working ple
 
   HAL_ADC_Start(&hadc1);
   HAL_ADC_Start(&hadc2);
-  bldc_start_calibration();
-  set_buzzer(startUpSound);
+
+  poweronMelody();
   HAL_GPIO_WritePin(LED_PORT, LED_PIN, GPIO_PIN_SET);
   
   int32_t board_temp_adcFixdt = adc_buffer.temp << 16;  // Fixed-point filter output initialized with current ADC converted to fixed-point
@@ -220,7 +240,7 @@ main_start:  // only for defect boards if you think your hardware is working ple
   #endif
 
   while(1) {
-    if (get_mainCounter() - buzzerTimer_prev > 16*DELAY_IN_MAIN_LOOP) {   // 1 ms = 16 ticks buzzerTimer
+    if (buzzerTimer - buzzerTimer_prev > 16*DELAY_IN_MAIN_LOOP) {   // 1 ms = 16 ticks buzzerTimer
 
     readCommand();                        // Read Command: input1[inIdx].cmd, input2[inIdx].cmd
     calcAvgSpeed();                       // Calculate average measured speed: speedAvg, speedAvgAbs
@@ -229,7 +249,8 @@ main_start:  // only for defect boards if you think your hardware is working ple
       // ####### MOTOR ENABLING: Only if the initial input is very small (for SAFETY) #######
       if (enable == 0 && !rtY_Left.z_errCode && !rtY_Right.z_errCode && 
           ABS(input1[inIdx].cmd) < 50 && ABS(input2[inIdx].cmd) < 50){
-        set_buzzer(beep_short6_4);
+        beepShort(6);                     // make 2 beeps indicating the motor enable
+        beepShort(4); HAL_Delay(100);
         steerFixdt = speedFixdt = 0;      // reset filters
         enable = 1;                       // enable motors
         #if defined(DEBUG_SERIAL_USART2) || defined(DEBUG_SERIAL_USART3)
@@ -386,7 +407,7 @@ main_start:  // only for defect boards if you think your hardware is working ple
 
       if ((distance / 1345.0) - setDistance > 0.5 && (lastDistance / 1345.0) - setDistance > 0.5) { // Error, robot too far away!
         enable = 0;
-        set_buzzer(beep_long);
+        beepLong(5);
         #ifdef SUPPORT_LCD
           LCD_ClearDisplay(&lcd);
           HAL_Delay(5);
@@ -524,23 +545,24 @@ main_start:  // only for defect boards if you think your hardware is working ple
       poweroff();
     } else if (rtY_Left.z_errCode || rtY_Right.z_errCode) {                                           // 1 beep (low pitch): Motor error, disable motors
       enable = 0;
-      set_buzzer(MotorFail);
+      beepCount(1, 24, 1);
     } else if (timeoutFlgADC) {                                                                       // 2 beeps (low pitch): ADC timeout
-      set_buzzer(adcTimeout);
+      beepCount(2, 24, 1);
     } else if (timeoutFlgSerial) {                                                                    // 3 beeps (low pitch): Serial timeout
-      set_buzzer(serialTimeout);
+      beepCount(3, 24, 1);
     } else if (timeoutFlgGen) {                                                                       // 4 beeps (low pitch): General timeout (PPM, PWM, Nunchuk)
-      set_buzzer(ppmTimeout);
+      beepCount(4, 24, 1);
     } else if (TEMP_WARNING_ENABLE && board_temp_deg_c >= TEMP_WARNING) {                             // 5 beeps (low pitch): Mainboard temperature warning
-      set_buzzer(TempWarning);
+      beepCount(5, 24, 1);
     } else if (BAT_LVL1_ENABLE && batVoltage < BAT_LVL1) {                                            // 1 beep fast (medium pitch): Low bat 1
-      set_buzzer(lowBattery3);
+      beepCount(0, 10, 6);
     } else if (BAT_LVL2_ENABLE && batVoltage < BAT_LVL2) {                                            // 1 beep slow (medium pitch): Low bat 2
-      set_buzzer(lowBattery2);
+      beepCount(0, 10, 30);
     } else if (BEEPS_BACKWARD && (((cmdR < -50 || cmdL < -50) && speedAvg < 0) || MultipleTapBrake.b_multipleTap)) { // 1 beep fast (high pitch): Backward spinning motors
-      set_buzzer(reverseSound);
+      beepCount(0, 5, 1);
       backwardDrive = 1;
     } else {  // do not beep
+      beepCount(0, 0, 0);
       backwardDrive = 0;
     }
 
@@ -570,11 +592,10 @@ main_start:  // only for defect boards if you think your hardware is working ple
     // HAL_GPIO_TogglePin(LED_PORT, LED_PIN);                 // This is to measure the main() loop duration with an oscilloscope connected to LED_PIN
     // Update states
     inIdx_prev = inIdx;
-    buzzerTimer_prev = get_mainCounter();
+    buzzerTimer_prev = buzzerTimer;
     main_loop_counter++;
     }
   }
-  goto main_start;  // if this goto is used the board is defect and everybody knows: "Defect boards are liking defect code" :D
 }
 
 
