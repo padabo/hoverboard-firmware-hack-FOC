@@ -1,5 +1,5 @@
 #define ADC_MIN 0                  // min ADC1-value while poti at minimum-position (0 - 1023)
-#define ADC_MAX ((1 << 10) -1)               // max ADC1-value while poti at maximum-position (0 - 1023)
+#define ADC_MAX ((1 << 12) -1)               // max ADC1-value while poti at maximum-position (0 - 1023)
 #define ADC_MID (ADC_MAX / 2)
 #define DEAD_ZONE 64
 
@@ -12,15 +12,22 @@
 #define THROTTLE_REVERSE_MAX (THROTTLE_MAX * 3 / 10)
 
 #define THROTTLE0_PIN 33
-#define THROTTLE1_PIN 32
-#define STEERING_PIN 35
-
+#define THROTTLE1_PIN 35
+#define STEERING_PIN 32
+#define I2C_SDA 22
+#define I2C_SCL 23
+#define RX0 17
+#define TX0 16
+#define RX1 18
+#define TX1 5
 // ########################## DEFINES ##########################
 #define HOVER_SERIAL_BAUD 115200 // [-] Baud rate for HoverSerial (used to communicate with the hoverboard)
 #define SERIAL_BAUD 115200       // [-] Baud rate for built-in Serial (used for the Serial Monitor)
 #define START_FRAME 0xABCD       // [-] Start frame definition for reliable serial communication
 #define TIME_SEND 20             // [ms] Sending time interval
 // #define DEBUG_RX                        // [-] Debug received data. Prints all bytes to serial (comment-out to disable)
+
+#define SCREEN_ADDRESS 0x3D ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
 
 #define BUFFERSIZE 128
 #define VAL_CNT 2

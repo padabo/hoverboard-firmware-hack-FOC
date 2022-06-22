@@ -24,6 +24,10 @@
 //   // #define DEBUG_SERIAL_USART2
 // *******************************************************************
 #include <SoftwareSerial.h>
+#include <BluetoothSerial.h> //Header File for Serial Bluetooth, will be added by default into Arduino
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include <math.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -36,8 +40,20 @@
 #include "config.h"
 
 //LiquidCrystal_I2C lcd(0x27, 20, 4);  //Hier wird das Display benannt (Adresse/Zeichen pro Zeile/Anzahl Zeilen). In unserem Fall „lcd“. Die Adresse des I²C Displays kann je nach Modul variieren.
-SoftwareSerial HoverSerial_front(2, 3); // RX, TX
-SoftwareSerial HoverSerial_rear(4, 5);  // RX, TX
+SoftwareSerial HoverSerial_front(RX0, TX0); // RX, TX
+SoftwareSerial HoverSerial_rear(RX1, TX1);  // RX, TX
+BluetoothSerial ESP_BT; //Object for Bluetooth
+
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+
+// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
+// The pins for I2C are defined by the Wire-library. 
+// On an arduino UNO:       A4(SDA), A5(SCL)
+// On an arduino MEGA 2560: 20(SDA), 21(SCL)
+// On an arduino LEONARDO:   2(SDA),  3(SCL), ...
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
+
 
 uint32_t index_buff_vals[VAL_CNT];
 uint32_t buff_vals[VAL_CNT][BUFFERSIZE];
@@ -69,7 +85,14 @@ void setup()
 {
   Serial.begin(SERIAL_BAUD);
   Serial.println("Hoverboard Serial v1.0");
-
+  Wire.begin(I2C_SDA, I2C_SCL);
+  ESP_BT.begin("ESP32_BobbyCon"); //Name of your Bluetooth Signal
+  pinMode(THROTTLE0_PIN,INPUT);
+  pinMode(STEERING_PIN,INPUT);
+  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+    Serial.println(F("SSD1306 allocation failed"));
+  else
+    display.display();
   //lcd.init(); //Im Setup wird der LCD gestartet
   //lcd.backlight(); //Hintergrundbeleuchtung einschalten (0 schaltet die Beleuchtung aus).
 
@@ -95,10 +118,57 @@ unsigned long iTimeSend = 0;
 uint32_t value_buffer(uint32_t in, int val)
 {
   cur_buff_val_sum[val] -= buff_vals[val][index_buff_vals[val]];
-  cur_buff_val_sum[val] += (buff_vals[val][index_buff_vals[val]] = (in >> 16));
+  cur_buff_val_sum[val] += (buff_vals[val][index_buff_vals[val]] = in);
   index_buff_vals[val] = (index_buff_vals[val] + 1) % (BUFFERSIZE);
-  return (cur_buff_val_sum[val] / (BUFFERSIZE)) << 16;
+  return (cur_buff_val_sum[val] / (BUFFERSIZE));
 }
+
+void testdrawchar(void) {
+  display.clearDisplay();
+
+  display.setTextSize(1);      // Normal 1:1 pixel scale
+  display.setTextColor(SSD1306_WHITE); // Draw white text
+  display.setCursor(0, 0);     // Start at top-left corner
+  display.cp437(true);         // Use full 256 char 'Code Page 437' font
+
+  // Not all the characters will fit on the display. This is normal.
+  // Library will draw what it can and the rest will be clipped.
+  for(int16_t i=0; i<256; i++) {
+    if(i == '\n') display.write(' ');
+    else          display.write(i);
+  }
+
+  display.display();
+  delay(2000);
+}
+
+void testscrolltext(void) {
+  display.clearDisplay();
+
+  display.setTextSize(2); // Draw 2X-scale text
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(10, 0);
+  display.println(F("scroll"));
+  display.display();      // Show initial text
+  delay(100);
+
+  // Scroll in various directions, pausing in-between:
+  display.startscrollright(0x00, 0x0F);
+  delay(2000);
+  display.stopscroll();
+  delay(1000);
+  display.startscrollleft(0x00, 0x0F);
+  delay(2000);
+  display.stopscroll();
+  delay(1000);
+  display.startscrolldiagright(0x00, 0x07);
+  delay(2000);
+  display.startscrolldiagleft(0x00, 0x07);
+  delay(2000);
+  display.stopscroll();
+  delay(1000);
+}
+
 /*
 uint8_t val_len[20][4];
 
@@ -140,22 +210,24 @@ void update_debug_screen()
 // bobbycar
 int clean_adc_full(uint32_t inval)
 {
-  int outval = (uint32_t)(inval >> 16) - ADC_MID;
+  int outval = (uint32_t)(inval) - ADC_MID;
   if (abs(outval) < (DEAD_ZONE / 2))
     return 0;
   else
     outval -= (DEAD_ZONE / 2) * SIGN(outval);
   if (abs(outval) > (ADC_MAX / 2 - ((DEAD_ZONE * 3) / 2)))
     return THROTTLE_MAX * SIGN(outval);
-  return outval * THROTTLE_MAX / (ADC_MAX / 2 - ((DEAD_ZONE * 3) / 2));
+  return outval * (THROTTLE_MAX/ 2) / (ADC_MAX - DEAD_ZONE * 3);
 }
 
 int clean_adc_half(uint32_t inval)
 {
-  int outval = (uint32_t)(inval >> 16);
+  int outval = (uint32_t)inval;
   if (abs(outval) > (ADC_MAX - ((DEAD_ZONE * 3) / 2)))
     return THROTTLE_MAX;
-  return outval * THROTTLE_MAX / (ADC_MAX - ((DEAD_ZONE * 3) / 2));
+  else if(abs(outval) < (((DEAD_ZONE * 3) / 2)))
+    return 0;
+  return outval * (THROTTLE_MAX / 2) / (ADC_MAX - DEAD_ZONE * 3);
 }
 
 int throttle_calc(int cleaned_adc)
@@ -338,11 +410,17 @@ void loop(void)
   if (iTimeSend > timeNow)
     return;
   iTimeSend = timeNow + TIME_SEND;
-  int throttle = throttle_calc(clean_adc_full(value_buffer(analogRead(THROTTLE0_PIN),0)));
+  int a0;
+  int a1;
+  int throttle = throttle_calc(clean_adc_full(a1=value_buffer(a0=analogRead(THROTTLE0_PIN),0)));
   float steering = calc_steering_eagle(clean_adc_full(value_buffer(analogRead(STEERING_PIN),1)));
   calc_torque_per_wheel(throttle, steering, torgue);
   Send(&HoverSerial_front, torgue[0], torgue[1]);
   Send(&HoverSerial_rear, torgue[2], torgue[3]);
+  Serial.print("Set: Throttle: ");
+  Serial.print(a0);
+  Serial.print("  steering: ");
+  Serial.println(a1);
   // Blink the LED
   digitalWrite(LED_BUILTIN, (timeNow % 2000) < 1000);
 }
