@@ -24,7 +24,7 @@
 //   // #define DEBUG_SERIAL_USART2
 // *******************************************************************
 #include <SoftwareSerial.h>
-#include <BluetoothSerial.h> //Header File for Serial Bluetooth, will be added by default into Arduino
+// #include <BluetoothSerial.h> //Header File for Serial Bluetooth, will be added by default into Arduino
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -42,10 +42,8 @@
 //LiquidCrystal_I2C lcd(0x27, 20, 4);  //Hier wird das Display benannt (Adresse/Zeichen pro Zeile/Anzahl Zeilen). In unserem Fall „lcd“. Die Adresse des I²C Displays kann je nach Modul variieren.
 SoftwareSerial HoverSerial_front(RX0, TX0); // RX, TX
 SoftwareSerial HoverSerial_rear(RX1, TX1);  // RX, TX
-BluetoothSerial ESP_BT; //Object for Bluetooth
+// BluetoothSerial ESP_BT; //Object for Bluetooth
 
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 // The pins for I2C are defined by the Wire-library. 
@@ -58,7 +56,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
 uint32_t index_buff_vals[VAL_CNT];
 uint32_t buff_vals[VAL_CNT][BUFFERSIZE];
 uint32_t cur_buff_val_sum[VAL_CNT];
-
+bool dsp_connected;
 typedef struct
 {
   uint16_t start;
@@ -86,11 +84,12 @@ void setup()
   Serial.begin(SERIAL_BAUD);
   Serial.println("Hoverboard Serial v1.0");
   Wire.begin(I2C_SDA, I2C_SCL);
-  ESP_BT.begin("ESP32_BobbyCon"); //Name of your Bluetooth Signal
+  // ESP_BT.begin("ESP32_BobbyCon"); //Name of your Bluetooth Signal
   pinMode(THROTTLE0_PIN,INPUT);
   pinMode(STEERING_PIN,INPUT);
-  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-    Serial.println(F("SSD1306 allocation failed"));
+  scan_i2c();
+  if(!(dsp_connected = display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)))
+    Serial.println("SSD1306 allocation failed");
   else
     display.display();
   //lcd.init(); //Im Setup wird der LCD gestartet
@@ -123,7 +122,7 @@ uint32_t value_buffer(uint32_t in, int val)
   return (cur_buff_val_sum[val] / (BUFFERSIZE));
 }
 
-void testdrawchar(void) {
+void draw(void) {
   display.clearDisplay();
 
   display.setTextSize(1);      // Normal 1:1 pixel scale
@@ -208,16 +207,26 @@ void update_debug_screen()
 }
 */
 // bobbycar
+int sign(float in){
+  if(in > 0.0f)
+    return 1;
+   else if(in < 0.0f)
+    return -1;
+   else
+    return 0;
+}
+
 int clean_adc_full(uint32_t inval)
 {
-  int outval = (uint32_t)(inval) - ADC_MID;
-  if (abs(outval) < (DEAD_ZONE / 2))
+  int outval = (int)(inval) - ADC_MID;
+  int abs_outval = abs(outval);
+  if (abs_outval < (DEAD_ZONE / 2)) // deadzone
     return 0;
   else
-    outval -= (DEAD_ZONE / 2) * SIGN(outval);
-  if (abs(outval) > (ADC_MAX / 2 - ((DEAD_ZONE * 3) / 2)))
-    return THROTTLE_MAX * SIGN(outval);
-  return outval * (THROTTLE_MAX/ 2) / (ADC_MAX - DEAD_ZONE * 3);
+    abs_outval -= (DEAD_ZONE / 2);
+  if (abs_outval > (ADC_MAX - ADC_MID - DEAD_ZONE * 3 / 2))
+    return THROTTLE_MAX * sign(outval);
+  return abs_outval * THROTTLE_MAX / (ADC_MAX - ADC_MID - DEAD_ZONE * 3 / 2) * sign(outval);
 }
 
 int clean_adc_half(uint32_t inval)
@@ -232,7 +241,9 @@ int clean_adc_half(uint32_t inval)
 
 int throttle_calc(int cleaned_adc)
 {
-  return cleaned_adc < 0 ? ((cleaned_adc * cleaned_adc / THROTTLE_REVERSE_MAX) * 2 + cleaned_adc) / 3 : ((cleaned_adc * cleaned_adc / THROTTLE_MAX) * 2 + cleaned_adc) / 3;
+  return cleaned_adc < 0 ?
+    ((cleaned_adc * cleaned_adc / THROTTLE_MAX) * (-2) + cleaned_adc) / 3 *THROTTLE_REVERSE_MAX / THROTTLE_MAX
+    : ((cleaned_adc * cleaned_adc / THROTTLE_MAX) * 2 + cleaned_adc) / 3;
 }
 
 int calc_torque(int throttle, int breaks)
@@ -256,18 +267,9 @@ float calc_steering_eagle(int inval)
   return (float)inval * STEERING_EAGLE_FACTOR;
 }
 
-static const int pow_wb = pow(WHEELBASE, 2);
 inline void calc_torque_per_wheel(int throttle, float steering_eagle, int *torque)
 {
-  int back_wheel = (float)WHEELBASE / tan(abs(steering_eagle));
-  int radius_main = sqrt(pow(back_wheel, 2) + (float)pow_wb / 4.0f);
-  int sign_steering = sign(steering_eagle);
-  int wheel_bl = (back_wheel + (WHEEL_WIDTH * sign_steering / 2 - STEERING_TO_WHEEL_DIST));
-  int wheel_br = (back_wheel - (WHEEL_WIDTH * sign_steering / 2 - STEERING_TO_WHEEL_DIST));
-  torque[0] = (sqrt(pow(wheel_bl, 2) + pow_wb) + STEERING_TO_WHEEL_DIST * sign_steering) * throttle / radius_main;
-  torque[1] = (sqrt(pow(wheel_br, 2) + pow_wb) - STEERING_TO_WHEEL_DIST * sign_steering) * throttle / radius_main;
-  torque[2] = (back_wheel + WHEEL_WIDTH / 2 * sign_steering) * throttle / radius_main;
-  torque[3] = (back_wheel - WHEEL_WIDTH / 2 * sign_steering) * throttle / radius_main;
+    torque[0] = torque[1] = torque[2] = torque[3] = throttle;
 }
 
 inline void swp(int *x, int *y)
@@ -321,7 +323,7 @@ bool Receive(SoftwareSerial *board, SerialFeedback *out)
   //  Check for new data availability in the Serial buffer
   if (board->available())
   {
-    incomingByte = HoverSerial_front.read();                            // Read the incoming byte
+    incomingByte = board-> read();                            // Read the incoming byte
     bufStartFrame = ((uint16_t)(incomingByte) << 8) | incomingBytePrev; // Construct the start frame
   }
   else
@@ -331,7 +333,7 @@ bool Receive(SoftwareSerial *board, SerialFeedback *out)
 
 // If DEBUG_RX is defined print all incoming bytes
 #ifdef DEBUG_RX
-  Serial.println(incomingByte);
+  Serial.println(incomingByte, HEX);
 #endif
 
   // Copy received data
@@ -396,31 +398,71 @@ SerialFeedback SerialFeedback_rear;
 int torgue[4];
 int speed_per_wheel[4];
 int speed;
+
+void scan_i2c(){
+  byte error, address;
+  int nDevices;
+  Serial.println("Scanning...");
+  nDevices = 0;
+  for(address = 1; address < 127; address++ ) {
+    Wire.beginTransmission(address);
+    error = Wire.endTransmission();
+    if (error == 0) {
+      Serial.print("I2C device found at address 0x");
+      if (address<16) {
+        Serial.print("0");
+      }
+      Serial.println(address,HEX);
+      nDevices++;
+    }
+    else if (error==4) {
+      Serial.print("Unknow error at address 0x");
+      if (address<16) {
+        Serial.print("0");
+      }
+      Serial.println(address,HEX);
+    }    
+  }
+  if (nDevices == 0) {
+    Serial.println("No I2C devices found\n");
+  }
+  else {
+    Serial.println("done\n");
+  }  
+}
+
 void loop(void)
 {
+  int a0;
   unsigned long timeNow = millis();
+  int throttle = throttle_calc(clean_adc_full(value_buffer(analogRead(THROTTLE0_PIN),0)));
+  float steering = calc_steering_eagle(clean_adc_full(a0 = value_buffer(analogRead(STEERING_PIN),1)));
   // Check for new received data
-  if(Receive(&HoverSerial_front, &SerialFeedback_front) || Receive(&HoverSerial_rear, &SerialFeedback_rear)){
-    speed_per_wheel[0] = SerialFeedback_front.speedL_meas;
-    speed_per_wheel[1] = SerialFeedback_front.speedR_meas;
-    speed_per_wheel[2] = SerialFeedback_rear.speedL_meas;
-    speed_per_wheel[3] = SerialFeedback_rear.speedR_meas;
-    speed = calc_median(speed_per_wheel,4);
-  }  // Send commands
+  //if(Receive(&HoverSerial_front, &SerialFeedback_front) || Receive(&HoverSerial_rear, &SerialFeedback_rear)){
+  //  speed_per_wheel[0] = SerialFeedback_front.speedL_meas;
+  //  speed_per_wheel[1] = SerialFeedback_front.speedR_meas;
+  //  speed_per_wheel[2] = SerialFeedback_rear.speedL_meas;
+  //  speed_per_wheel[3] = SerialFeedback_rear.speedR_meas;
+  //  speed = calc_median(speed_per_wheel,4);
+  //}  // Send commands
   if (iTimeSend > timeNow)
     return;
   iTimeSend = timeNow + TIME_SEND;
-  int a0;
-  int a1;
-  int throttle = throttle_calc(clean_adc_full(a1=value_buffer(a0=analogRead(THROTTLE0_PIN),0)));
-  float steering = calc_steering_eagle(clean_adc_full(value_buffer(analogRead(STEERING_PIN),1)));
   calc_torque_per_wheel(throttle, steering, torgue);
   Send(&HoverSerial_front, torgue[0], torgue[1]);
   Send(&HoverSerial_rear, torgue[2], torgue[3]);
   Serial.print("Set: Throttle: ");
-  Serial.print(a0);
+  Serial.print(throttle);
   Serial.print("  steering: ");
-  Serial.println(a1);
+  Serial.print(a0);
+  Serial.print("  torgue: ");
+  Serial.print(torgue[0]);
+  Serial.print(" ");
+  Serial.print(torgue[1]);
+  Serial.print(" ");
+  Serial.print(torgue[2]);
+  Serial.print(" ");
+  Serial.println(torgue[3]);
   // Blink the LED
   digitalWrite(LED_BUILTIN, (timeNow % 2000) < 1000);
 }

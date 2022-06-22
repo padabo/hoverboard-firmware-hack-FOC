@@ -3,7 +3,7 @@
 #define ADC_MID (ADC_MAX / 2)
 #define DEAD_ZONE 64
 
-#define STEERING_EAGLE_FACTOR (45.0f/1000.0f)
+#define STEERING_EAGLE_FACTOR (M_PI_4/1000.0f)
 #define WHEELBASE 35
 #define WHEEL_WIDTH 10
 #define STEERING_TO_WHEEL_DIST 5
@@ -11,9 +11,9 @@
 #define THROTTLE_MAX 1000
 #define THROTTLE_REVERSE_MAX (THROTTLE_MAX * 3 / 10)
 
-#define THROTTLE0_PIN 33
+#define THROTTLE0_PIN 32
 #define THROTTLE1_PIN 35
-#define STEERING_PIN 32
+#define STEERING_PIN 33
 #define I2C_SDA 22
 #define I2C_SCL 23
 #define RX0 17
@@ -27,7 +27,9 @@
 #define TIME_SEND 20             // [ms] Sending time interval
 // #define DEBUG_RX                        // [-] Debug received data. Prints all bytes to serial (comment-out to disable)
 
-#define SCREEN_ADDRESS 0x3D ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+#define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
-#define BUFFERSIZE 128
-#define VAL_CNT 2
+#define BUFFERSIZE 256
+#define VAL_CNT 3

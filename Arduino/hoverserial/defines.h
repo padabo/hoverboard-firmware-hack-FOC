@@ -7,7 +7,7 @@
 #define RAD(a) ((a)*180.0 / M_PI)
 #define SIGN(a) (((a) < 0.0) ? (-1.0) : (((a) > 0.0) ? (1.0) : (0.0)))
 #define SIGN_INT(a) (((a) < 0) ? (-1) : (((a) > 0) ? (1) : (0)))
-#define sign SIGN
+//#define sign SIGN
 #define CLAMP(x, low, high) (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
 #define SCALE(value, high, max) MIN(MAX(((max) - (value)) / ((max) - (high)), 0.0), 1.0)
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
