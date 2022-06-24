@@ -25,7 +25,7 @@
 
 
 // ############################### DO-NOT-TOUCH SETTINGS ###############################
-#define PWM_FREQ            16000     // PWM frequency in Hz / is also used for buzzer
+#define PWM_FREQ            32000     // PWM frequency in Hz / is also used for buzzer
 #define DEAD_TIME              48     // PWM deadtime
 #ifdef VARIANT_TRANSPOTTER
   #define DELAY_IN_MAIN_LOOP    2
