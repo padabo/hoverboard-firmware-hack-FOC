@@ -71,12 +71,12 @@ static uint8_t enableFin    = 0;
 static const uint16_t pwm_res  = 64000000 / 2 / PWM_FREQ; // = 2000
 
 static uint16_t offsetcount = 0;
-static int16_t offsetrlA    = 2000;
-static int16_t offsetrlB    = 2000;
-static int16_t offsetrrB    = 2000;
-static int16_t offsetrrC    = 2000;
-static int16_t offsetdcl    = 2000;
-static int16_t offsetdcr    = 2000;
+static int64_t offsetrlA    = 0;
+static int64_t offsetrlB    = 0;
+static int64_t offsetrrB    = 0;
+static int64_t offsetrrC    = 0;
+static int64_t offsetdcl    = 0;
+static int64_t offsetdcr    = 0;
 
 int16_t        batVoltage       = (400 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_REAL_VOLTAGE;
 static int32_t batVoltageFixdt  = (400 * BAT_CELLS * BAT_CALIB_ADC) / BAT_CALIB_REAL_VOLTAGE << 16;  // Fixed-point filter output initialized at 400 V*100/cell = 4 V/cell converted to fixed-point
@@ -90,15 +90,29 @@ void DMA1_Channel1_IRQHandler(void) {
   // HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1);
   // HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
 
-  if(offsetcount < 2000) {  // calibrate ADC offsets
+  if(offsetcount < 2048) {  // calibrate ADC offsets
     offsetcount++;
-    offsetrlA = (adc_buffer.rlA + offsetrlA) / 2;
-    offsetrlB = (adc_buffer.rlB + offsetrlB) / 2;
-    offsetrrB = (adc_buffer.rrB + offsetrrB) / 2;
-    offsetrrC = (adc_buffer.rrC + offsetrrC) / 2;
-    offsetdcl = (adc_buffer.dcl + offsetdcl) / 2;
-    offsetdcr = (adc_buffer.dcr + offsetdcr) / 2;
+    offsetrlA += adc_buffer.rlA;
+    offsetrlB += adc_buffer.rlB;
+    offsetrrB += adc_buffer.rrB;
+    offsetrrC += adc_buffer.rrC;
+    offsetdcl += adc_buffer.dcl;
+    offsetdcr += adc_buffer.dcr;
     return;
+  }
+  else if(offsetcount == 2048){
+    offsetrlA += adc_buffer.rlA;
+    offsetrlB += adc_buffer.rlB;
+    offsetrrB += adc_buffer.rrB;
+    offsetrrC += adc_buffer.rrC;
+    offsetdcl += adc_buffer.dcl;
+    offsetdcr += adc_buffer.dcr;
+    offsetrlA /= 2;
+    offsetrlB /= 2;
+    offsetrrB /= 2;
+    offsetrrC /= 2;
+    offsetdcl /= 2;
+    offsetdcr /= 2;
   }
 
   if (buzzerTimer % 1000 == 0) {  // Filter battery voltage at a slower sampling rate
