@@ -1,1 +1,1 @@
-build/main.d build/main.d: /dev/null
+build/eeprom.d: /dev/null

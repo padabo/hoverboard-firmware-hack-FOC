@@ -65,10 +65,15 @@ extern ExtU rtU_Left;                   /* External inputs */
 extern ExtU rtU_Right;                  /* External inputs */
 //---------------
 #ifdef CONTROL_ADC
+  #define ADC_MID 2048
+  #define THROTTLE_MAX 1000
+  #define ADC_MAX 4095
+  #define DEAD_ZONE 64
+  #define VAL_CNT 2
+  #define BUFFERSIZE 256  
 uint32_t index_buff_vals[VAL_CNT];
 uint32_t buff_vals[VAL_CNT][BUFFERSIZE];
 uint32_t cur_buff_val_sum[VAL_CNT];
-
 uint32_t value_buffer(uint32_t in, int val)
 {
   cur_buff_val_sum[val] -= buff_vals[val][index_buff_vals[val]];
