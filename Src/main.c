@@ -64,6 +64,49 @@ extern ExtY rtY_Right;                  /* External outputs */
 extern ExtU rtU_Left;                   /* External inputs */
 extern ExtU rtU_Right;                  /* External inputs */
 //---------------
+#ifdef CONTROL_ADC
+uint32_t index_buff_vals[VAL_CNT];
+uint32_t buff_vals[VAL_CNT][BUFFERSIZE];
+uint32_t cur_buff_val_sum[VAL_CNT];
+
+uint32_t value_buffer(uint32_t in, int val)
+{
+  cur_buff_val_sum[val] -= buff_vals[val][index_buff_vals[val]];
+  cur_buff_val_sum[val] += (buff_vals[val][index_buff_vals[val]] = in);
+  index_buff_vals[val] = (index_buff_vals[val] + 1) % (BUFFERSIZE);
+  return (cur_buff_val_sum[val] / (BUFFERSIZE));
+}
+
+int clean_adc_full(uint32_t inval)
+{
+  int outval = (int)(inval) - ADC_MID;
+  int abs_outval = abs(outval);
+  if (abs_outval < (DEAD_ZONE / 2)) // deadzone
+    return 0;
+  else
+    abs_outval -= (DEAD_ZONE / 2);
+  if (abs_outval > (ADC_MAX - ADC_MID - DEAD_ZONE * 3 / 2))
+    return THROTTLE_MAX * sign(outval);
+  return abs_outval * THROTTLE_MAX / (ADC_MAX - ADC_MID - DEAD_ZONE * 3 / 2) * sign(outval);
+}
+
+int clean_adc_half(uint32_t inval)
+{
+  int outval = (uint32_t)inval;
+  if (abs(outval) > (ADC_MAX - ((DEAD_ZONE * 3) / 2)))
+    return THROTTLE_MAX;
+  else if(abs(outval) < (((DEAD_ZONE * 3) / 2)))
+    return 0;
+  return outval * (THROTTLE_MAX / 2) / (ADC_MAX - DEAD_ZONE * 3);
+}
+
+int PowXplusX(int cleaned_adc,int maximum_value)
+{
+  return ((cleaned_adc * cleaned_adc / maximum_value) * 2 * SIGN(cleaned_adc) * SIGN(maximum_value)  + cleaned_adc) / 3;
+}
+
+#endif
+
 
 extern uint8_t     inIdx;               // input index used for dual-inputs
 extern uint8_t     inIdx_prev;
@@ -212,6 +255,15 @@ int main(void) {
   
   int32_t board_temp_adcFixdt = adc_buffer.temp << 16;  // Fixed-point filter output initialized with current ADC converted to fixed-point
   int16_t board_temp_adcFilt  = adc_buffer.temp;
+
+  #ifdef CONTROL_ADC
+    for (int i = 0; i < VAL_CNT; i++)
+    {
+      cur_buff_val_sum[i] = index_buff_vals[i] = 0;
+      for (int j = 0; j < BUFFERSIZE; j++)
+        cur_buff_val_sum[i] += (buff_vals[i][j] = ADC_MID);
+    }
+  #endif
 
   #ifdef MULTI_MODE_DRIVE
     if (adc_buffer.l_rx2 >= input1[0].min) {

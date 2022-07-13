@@ -1,1 +1,1 @@
-build/buzzertones.d: /dev/null
+build/main.d build/main.d: /dev/null
