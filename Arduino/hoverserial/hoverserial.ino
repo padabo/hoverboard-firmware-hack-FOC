@@ -28,6 +28,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <Bluepad32.h>
 #include <math.h>
 #include <stdlib.h>
 #include <stdint.h>

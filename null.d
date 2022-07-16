@@ -1,1 +1,1 @@
-build/eeprom.d: /dev/null
+build/bldc.d: /dev/null
