@@ -24,11 +24,11 @@
 //   // #define DEBUG_SERIAL_USART2
 // *******************************************************************
 #include <SoftwareSerial.h>
-// #include <BluetoothSerial.h> //Header File for Serial Bluetooth, will be added by default into Arduino
+#include <BluetoothSerial.h> //Header File for Serial Bluetooth, will be added by default into Arduino
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <Bluepad32.h>
+// #include <Bluepad32.h>
 #include <math.h>
 #include <stdlib.h>
 #include <stdint.h>
