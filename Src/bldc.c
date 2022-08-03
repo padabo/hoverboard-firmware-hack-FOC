@@ -101,6 +101,7 @@ void DMA1_Channel1_IRQHandler(void) {
     return;
   }
   else if(offsetcount == 2048){
+    offsetcount++;
     offsetrlA += adc_buffer.rlA;
     offsetrlB += adc_buffer.rlB;
     offsetrrB += adc_buffer.rrB;
