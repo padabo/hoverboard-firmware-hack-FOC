@@ -1,1 +1,1 @@
-build/bldc.d: /dev/null
+build/main.d: /dev/null
