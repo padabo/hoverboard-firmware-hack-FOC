@@ -364,7 +364,7 @@ void Input_Init(void) {
   #if defined(DEBUG_I2C_LCD) || defined(SUPPORT_LCD)
     I2C_Init();
     HAL_Delay(50);
-    lcd.pcf8574.PCF_I2C_ADDRESS = 0x27;
+    lcd.pcf8574.PCF_I2C_ADDRESS = LCD_ADDRESS;
     lcd.pcf8574.PCF_I2C_TIMEOUT = 5;
     lcd.pcf8574.i2c             = hi2c2;
     lcd.NUMBER_OF_LINES         = NUMBER_OF_LINES_2;
