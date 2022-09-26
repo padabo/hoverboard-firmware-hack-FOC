@@ -30,6 +30,7 @@
 #include "BLDC_controller.h"
 #include "rtwtypes.h"
 #include "comms.h"
+#include "crc32.h"
 
 #if defined(DEBUG_I2C_LCD) || defined(SUPPORT_LCD)
 #include "hd44780.h"
@@ -1271,9 +1272,9 @@ void usart_process_command(SerialCommand *command_in, SerialCommand *command_out
       }
     }
   #else
-  uint16_t checksum;
+  uint32_t checksum;
   if (command_in->start == SERIAL_START_FRAME) {
-    checksum = (uint16_t)(command_in->start ^ command_in->steer ^ command_in->speed);
+    checksum = calc_crc32(command_out,sizeof(SerialCommand)-sizeof(uint32_t));
     if (command_in->checksum == checksum) {
       *command_out = *command_in;
       if (usart_idx == 2) {             // Sideboard USART2
