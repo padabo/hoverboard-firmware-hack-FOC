@@ -1274,7 +1274,7 @@ void usart_process_command(SerialCommand *command_in, SerialCommand *command_out
   #else
   uint32_t checksum;
   if (command_in->start == SERIAL_START_FRAME) {
-    checksum = calc_crc32((uint8_t*)command_out,sizeof(SerialCommand)-sizeof(uint32_t));
+    checksum = calc_crc32((uint8_t*)command_in,sizeof(SerialCommand)-sizeof(uint32_t));
     if (command_in->checksum == checksum) {
       *command_out = *command_in;
       if (usart_idx == 2) {             // Sideboard USART2
