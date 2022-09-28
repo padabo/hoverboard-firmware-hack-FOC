@@ -175,7 +175,8 @@ typedef struct{
   int16_t   batVoltage;
   int16_t   boardTemp;
   uint16_t  cmdLed;
-  uint32_t  checksum;
+  uint16_t  checksumL;
+  uint16_t  checksumH;
 } SerialFeedback;
 static SerialFeedback Feedback;
 #endif
@@ -563,7 +564,7 @@ int main(void) {
 
     // ####### FEEDBACK SERIAL OUT #######
     #if defined(FEEDBACK_SERIAL_USART2) || defined(FEEDBACK_SERIAL_USART3)
-      if (main_loop_counter % 2 == 0) {    // Send data periodically every 10 ms
+      if (main_loop_counter % 4 == 0) {    // Send data periodically every 10 ms
         Feedback.start	        = (uint16_t)SERIAL_START_FRAME;
         Feedback.cmd1           = (int16_t)input1[inIdx].cmd;
         Feedback.cmd2           = (int16_t)input2[inIdx].cmd;
@@ -575,16 +576,18 @@ int main(void) {
         #if defined(FEEDBACK_SERIAL_USART2)
           if(__HAL_DMA_GET_COUNTER(huart2.hdmatx) == 0) {
             Feedback.cmdLed     = (uint16_t)sideboard_leds_L;
-            Feedback.checksum   =  calc_crc32((uint8_t*)&Feedback,sizeof(Feedback)-sizeof(uint32_t));
-
+            uint32_t checksum = calc_crc32((uint8_t*)&Feedback,sizeof(Feedback) - sizeof(uint16_t)*2);
+            Feedback.checksumL   =  checksum;
+            Feedback.checksumH   =  checksum >> 16;
             HAL_UART_Transmit_DMA(&huart2, (uint8_t *)&Feedback, sizeof(Feedback));
           }
         #endif
         #if defined(FEEDBACK_SERIAL_USART3)
           if(__HAL_DMA_GET_COUNTER(huart3.hdmatx) == 0) {
             Feedback.cmdLed     = (uint16_t)sideboard_leds_R;
-            Feedback.checksum   =  calc_crc32((uint8_t*)&Feedback,sizeof(Feedback)-sizeof(uint32_t));
-
+            uint32_t checksum = calc_crc32((uint8_t*)&Feedback,sizeof(Feedback) - sizeof(uint16_t)*2);
+            Feedback.checksumL   =  checksum;
+            Feedback.checksumH   =  checksum >> 16;
             HAL_UART_Transmit_DMA(&huart3, (uint8_t *)&Feedback, sizeof(Feedback));
           }
         #endif
