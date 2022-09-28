@@ -578,7 +578,7 @@ int main(void) {
             Feedback.cmdLed     = (uint16_t)sideboard_leds_L;
             uint32_t checksum = calc_crc32((uint8_t*)&Feedback,sizeof(SerialFeedback) - sizeof(uint16_t)*2);
             Feedback.checksumL   =  checksum & 0xFFFF;
-            Feedback.checksumH   =  checksum / 0x10000;
+            Feedback.checksumH   =  checksum >> 16;
             HAL_UART_Transmit_DMA(&huart2, (uint8_t *)&Feedback, sizeof(SerialFeedback));
           }
         #endif
@@ -587,7 +587,7 @@ int main(void) {
             Feedback.cmdLed     = (uint16_t)sideboard_leds_R;
             uint32_t checksum = calc_crc32((uint8_t*)&Feedback,sizeof(SerialFeedback) - sizeof(uint16_t)*2);
             Feedback.checksumL   =  checksum & 0xFFFF;
-            Feedback.checksumH   =  checksum / 0x10000;
+            Feedback.checksumH   =  checksum >> 16;
             HAL_UART_Transmit_DMA(&huart3, (uint8_t *)&Feedback, sizeof(SerialFeedback));
           }
         #endif
