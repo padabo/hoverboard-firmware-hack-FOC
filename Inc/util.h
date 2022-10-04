@@ -40,7 +40,7 @@
       int16_t   steer;
       int16_t   speed;
       uint16_t  checksumL;
-      uint32_t  checksumH;
+      uint16_t  checksumH;
     } SerialCommand;
   #endif
 #endif
