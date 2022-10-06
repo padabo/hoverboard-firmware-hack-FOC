@@ -370,6 +370,7 @@ int main(void) {
         }
       #endif
 
+      #ifndef USE_RAW_INPUT
       // ####### LOW-PASS FILTER #######
       rateLimiter16(input1[inIdx].cmd, rate, &steerRateFixdt);
       rateLimiter16(input2[inIdx].cmd, rate, &speedRateFixdt);
@@ -377,7 +378,10 @@ int main(void) {
       filtLowPass32(speedRateFixdt >> 4, FILTER, &speedFixdt);
       steer = (int16_t)(steerFixdt >> 16);  // convert fixed-point to integer
       speed = (int16_t)(speedFixdt >> 16);  // convert fixed-point to integer
-
+      #else
+      steer = input1[inIdx].raw;  // convert fixed-point to integer
+      speed = input2[inIdx].raw;  // convert fixed-point to integer
+      #endif
       // ####### VARIANT_HOVERCAR #######
       #ifdef VARIANT_HOVERCAR
       if (inIdx == CONTROL_ADC) {               // Only use use implementation below if pedals are in use (ADC input)
@@ -568,8 +572,16 @@ int main(void) {
         Feedback.start	        = (uint16_t)SERIAL_START_FRAME;
         Feedback.cmd1           = (int16_t)input1[inIdx].cmd;
         Feedback.cmd2           = (int16_t)input2[inIdx].cmd;
-        Feedback.speedR_meas	  = -(int16_t)rtY_Right.n_mot;
-        Feedback.speedL_meas	  = (int16_t)rtY_Left.n_mot;
+        #ifdef INVERT_R_DIRECTION
+          Feedback.speedR_meas = (int16_t)rtY_Right.n_mot;
+        #else
+          Feedback.speedR_meas = -(int16_t)rtY_Right.n_mot;
+        #endif
+        #ifdef INVERT_L_DIRECTION
+          Feedback.speedL_meas = -(int16_t)rtY_Left.n_mot;
+        #else
+          Feedback.speedL_meas = (int16_t)rtY_Left.n_mot;
+        #endif
         Feedback.batVoltage	    = (int16_t)batVoltageCalib;
         Feedback.boardTemp	    = (int16_t)board_temp_deg_c;
 
